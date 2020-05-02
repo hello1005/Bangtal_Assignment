@@ -268,6 +268,8 @@ void enemySetting(void) {
 			int x = rand() % 985;
 			showSeroLaserEffect(battleScene, x, 0, laserScale);
 		}
+
+		// 레이저 1번마다 플레이어의 체력 1 감소, 체력이 0이 되면 게임 오버
 		playerHp -= 1;
 
 		if (playerHp <= 0) {
