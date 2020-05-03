@@ -5,7 +5,6 @@
 // ============================================================================================
 
 // 전처리기
-
 #include <Bangtal.h>
 #pragma comment(lib, "Bangtal.lib")
 
@@ -21,20 +20,23 @@ using std::thread;
 
 // ============================================================================================
 
+// 장면
+SceneID startScene, battleScene;
+
+// UI
+ObjectID startButton, howButton, howToPlay, hp, hpInfo;
+
+// 시작 시간
+clock_t startTime;
+
 // 1 프레임당 50 ms
 constexpr auto TICK = 50;
 
 // 클릭 한 번에 적에게 입히는 피해량
-constexpr auto DAMAGE = 20;
+constexpr auto DAMAGE = 5;
 
 // 배율
 constexpr auto SCALE = 0.8f;
-
-// 장면
-SceneID startScene, battleScene;
-
-// 시작 시간
-clock_t startTime;
 
 // 적
 ObjectID enemy;
@@ -52,8 +54,11 @@ ObjectID barrierDefault, barrierAwaken;
 bool laserAttacking = false;
 
 // 플레이어
-constexpr auto PLAYER_MAXHP = static_cast<int>(ENEMY_MAXHP / DAMAGE);
+ObjectID shield;
+constexpr auto PLAYER_MAXHP = static_cast<int>(ENEMY_MAXHP / DAMAGE / 2);
 int playerHp = PLAYER_MAXHP;
+
+bool playerShield = false;
 
 // ============================================================================================
 
@@ -71,6 +76,8 @@ void showSeroLaserAttack(SceneID scene, const int x, const int y, const float sc
 
 void showGaroLaserEffect(SceneID scene, const int x, const int y, const float scale);
 void showGaroLaserAttack(SceneID scene, const int x, const int y, const float scale);
+
+void showShield(void);
 
 void mouseCallback(ObjectID obj, const int x, const int y, MouseAction action);
 
@@ -126,7 +133,7 @@ void awakenSetting(void) {
 		setObjectImage(awakening, imageName);
 	}
 	setObjectImage(enemy, ".\\Images\\Enemy\\awaken_fix.png");
-	Sleep(TICK * 60);
+	Sleep(TICK * 40);
 	
 	for (int i = 4; i >= 1; i--) {
 		Sleep(TICK);
@@ -184,7 +191,9 @@ void enemyDie(void) {
 	hideObject(enemy);
 	hideObject(barrierAwaken);
 	hideObject(barrierDefault);
-	Sleep(TICK * 10);
+	hideObject(hp);
+	hideObject(hpInfo);
+	Sleep(TICK * 20);
 
 	enemyX = 565;
 	enemyY = 245;
@@ -206,7 +215,12 @@ void enemyDie(void) {
 
 	hideObject(message);
 	hideObject(enemy);
-	Sleep(TICK * 40);
+	Sleep(TICK * 20);
+
+	ObjectID win = createObject("Win", ".\\Images\\Others\\win.png");
+	locateObject(win, battleScene, 520, 400);
+	showObject(win);
+	Sleep(TICK * 20);
 
 	clock_t usedTime = clock() - startTime;
 	char text[200];
@@ -231,7 +245,7 @@ void enemySetting(void) {
 	scaleObject(barrierDefault, SCALE);
 	showObject(barrierDefault);
 
-	Sleep(TICK * 20);
+	Sleep(TICK * 30);
 
 	// 스레드로 무한 반복
 	while (true) {
@@ -257,28 +271,71 @@ void enemySetting(void) {
 			laserScale = 3.5f;
 		}
 
+		Sleep(TICK * 10);
+		showShield();
+		if (enemyAwakening) {
+			Sleep(TICK * 15);
+		}
+		else {
+			Sleep(TICK * 20);
+		}
+		hideObject(shield);
+
 		// 레이저 가로, 세로 결정
 		int kind = rand() % 2;
-
+		
 		if (kind % 2) {
 			int y = rand() % 431;
 			showGaroLaserEffect(battleScene, 0, y, laserScale);
+			if (not playerShield) {
+				playerHp -= 1;
+			}
+			
+
+			if (enemyAwakening) {
+				int x = rand() % 985;
+				showSeroLaserEffect(battleScene, x, 0, laserScale);
+				if (not playerShield) {
+					playerHp -= 1;
+				}
+			}
 		}
 		else {
 			int x = rand() % 985;
 			showSeroLaserEffect(battleScene, x, 0, laserScale);
+			if (not playerShield) {
+				playerHp -= 1;
+			}
+
+			if (enemyAwakening) {
+				int y = rand() % 431;
+				showGaroLaserEffect(battleScene, 0, y, laserScale);
+				if (not playerShield) {
+					playerHp -= 1;
+				}
+			}
+		}
+		
+
+		if (playerHp <= static_cast<int>(PLAYER_MAXHP * 0.5f)) {
+			setObjectImage(hp, ".\\Images\\Others\\hp2.png");
 		}
 
-		// 레이저 1번마다 플레이어의 체력 1 감소, 체력이 0이 되면 게임 오버
-		playerHp -= 1;
-
+		// 체력이 0이 되면 게임 오버
 		if (playerHp <= 0) {
 			hideObject(enemy);
 			hideObject(barrierAwaken);
 			hideObject(barrierDefault);
-
+			hideObject(hp);
+			hideObject(hpInfo);
 			Sleep(TICK * 20);
-			showMessage("적을 빠른 시간 내로 잡지 못했습니다.\n세계가 파괴되어 게임 오버됩니다.");
+
+			ObjectID lose = createObject("Lose", ".\\Images\\Others\\lose.png");
+			locateObject(lose, battleScene, 500, 400);
+			showObject(lose);
+			Sleep(TICK * 20);
+
+			showMessage("당신은 그를 이기지 못했습니다.\n세계가 파괴되어 게임 오버됩니다.");
 			Sleep(TICK * 40);
 
 			endGame();
@@ -458,9 +515,43 @@ void showGaroLaserAttack(SceneID scene, const int x, const int y, const float sc
 
 // ============================================================================================
 
+// 방패
+void showShield(void) {
+	playerShield = false;
+
+	srand((unsigned)time(NULL));
+
+	int x = rand() % 1051 + 100;
+	int y = rand() % 501 + 100;
+
+	locateObject(shield, battleScene, x, y);
+	showObject(shield);
+}
+
+// ============================================================================================
+
 // 마우스 입력
 void mouseCallback(ObjectID obj, const int x, const int y, MouseAction action) {
-	if (obj == enemy and not laserAttacking) {
+	if (obj == howButton) {
+		showObject(howToPlay);
+	}
+	else if (obj == howToPlay) {
+		hideObject(howToPlay);
+	}
+	else if (obj == startButton) {
+		enterScene(battleScene);
+		startTime = clock();
+
+		thread enemySet = thread(enemySetting);
+		enemySet.detach();
+	}
+	else if (obj == shield) {
+		playerShield = true;
+		SoundID shieldSound = createSound(".\\Sounds\\shieldSound.wav");
+		playSound(shieldSound);
+		hideObject(shield);
+	}
+	else if (obj == enemy and not laserAttacking) {
 		thread Hit = thread(showHitEffect, battleScene, x, y, 0.5f);
 		Hit.join();
 	}
@@ -473,20 +564,45 @@ int main(void) {
 	setMouseCallback(mouseCallback);
 
 	// 전투 장면
-	startScene = createScene("Start", "none");
+	startScene = createScene("Start", ".\\Images\\Others\\background_fix.jpg");
 	battleScene = createScene("Battle", ".\\Images\\Others\\background_fix.jpg");
+
+	// UI
+	startButton = createObject("StartButton", ".\\Images\\Others\\start_fix.png");
+	locateObject(startButton, startScene, 570, 130);
+	scaleObject(startButton, SCALE);
+	showObject(startButton);
+
+	howButton = createObject("HowButton", ".\\Images\\Others\\how_fix.png");
+	locateObject(howButton, startScene, 581, 50);
+	scaleObject(howButton, SCALE);
+	showObject(howButton);
+
+	howToPlay = createObject("HowToPlay", ".\\Images\\Others\\howtoplay_fix2.png");
+	locateObject(howToPlay, startScene, 497, 60);
+	scaleObject(howToPlay, SCALE);
+
+	hp = createObject("Hp", ".\\Images\\Others\\hp.png");
+	locateObject(hp, battleScene, 50, 30);
+	scaleObject(hp, SCALE);
+	showObject(hp);
+
+	hpInfo = createObject("HpInfo", ".\\Images\\Others\\hp_info.png");
+	locateObject(hpInfo, battleScene, 35, 80);
+	scaleObject(hpInfo, SCALE);
+	showObject(hpInfo);
 
 	// 적
 	enemy = createObject("Enemy", ".\\Images\\Enemy\\default.png");
 	locateObject(enemy, battleScene, enemyX, enemyY);
 	scaleObject(enemy, SCALE);
 	showObject(enemy);
-	
-	// 레이저 및 이동 설정
-	thread enemySet = thread(enemySetting);
-	enemySet.detach();
-	
+
+	// 플레이어 방패 (x: 100 ~ 1150 / y: 100 ~ 600)
+	shield = createObject("Shield", ".\\Images\\Others\\shield_fix.png");
+	locateObject(shield, battleScene, 1150, 600);
+	scaleObject(shield, SCALE);
+
 	// 게임 시작
-	startTime = clock();
-	startGame(battleScene);
+	startGame(startScene);
 }
