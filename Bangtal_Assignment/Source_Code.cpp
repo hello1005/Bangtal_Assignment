@@ -1,7 +1,6 @@
 // ============================================================================================
-// == 소프트웨어학부, 20200690 박진철 ==========================================================
-// ============================================================================================
-
+// 소프트웨어학부, 20200690 박진철
+// 기초컴퓨터프로그래밍 개인 과제의 소스 코드
 // ============================================================================================
 
 // 전처리기
@@ -227,7 +226,7 @@ void enemyDie(void) {
 	sprintf_s(text, sizeof(text), "남은 목숨: %d개 | 소요 시간: %d초\n플레이해주셔서 감사합니다.", playerHp, static_cast<int>(usedTime / CLOCKS_PER_SEC));
 
 	showMessage(text);
-	Sleep(TICK * 40);
+	Sleep(TICK * 60);
 
 	endGame();
 }
@@ -279,7 +278,12 @@ void enemySetting(void) {
 		else {
 			Sleep(TICK * 20);
 		}
-		hideObject(shield);
+		
+		if (not playerShield) {
+			hideObject(shield);
+		}
+		
+		Sleep(TICK * 10);
 
 		// 레이저 가로, 세로 결정
 		int kind = rand() % 2;
@@ -336,7 +340,7 @@ void enemySetting(void) {
 			Sleep(TICK * 20);
 
 			showMessage("당신은 그를 이기지 못했습니다.\n세계가 파괴되어 게임 오버됩니다.");
-			Sleep(TICK * 40);
+			Sleep(TICK * 60);
 
 			endGame();
 		}
